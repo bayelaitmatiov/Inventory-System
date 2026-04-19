@@ -1,5 +1,5 @@
 # Frontend UI Specs
-
+Just a test for git
 The frontend consists of plain HTML + CSS pages served directly by Spring Boot. JavaScript `fetch()` calls are used to interact with the REST API. No frameworks, no build step.
 
 ---
