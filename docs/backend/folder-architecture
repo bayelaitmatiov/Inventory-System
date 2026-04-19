@@ -1,0 +1,148 @@
+# Backend Folder Architecture
+
+The backend is a Spring Boot application following a standard layered architecture.
+
+---
+
+## Full Project Structure
+
+```
+WareHouseSystem/
+├── src/
+│   ├── main/
+│   │   ├── java/com/inventory/
+│   │   │   ├── controller/        # REST API endpoints
+│   │   │   ├── service/           # Business logic
+│   │   │   ├── repository/        # Database access
+│   │   │   ├── model/             # JPA entity classes (database tables)
+│   │   │   └── WareHouseSystemApplication.java   # App entry point
+│   │   └── resources/
+│   │       ├── static/            # Frontend files (HTML, CSS, JS)
+│   │       └── application.properties  # Configuration
+├── pom.xml                        # Maven dependencies
+└── .gitignore
+```
+
+---
+
+## Layer Breakdown
+
+### `model/` — Entities
+
+JPA entity classes that map directly to MySQL tables. Each class represents one table.
+
+| Class | Table | Description |
+|---|---|---|
+| `Product` | `product` | Product catalog |
+| `Warehouse` | `warehouse` | Warehouse locations |
+| `StockMovement` | `stock_movement` | Stock in/out history |
+
+Each entity uses:
+- `@Entity` — marks it as a database table
+- `@Id` + `@GeneratedValue` — auto-generated primary key
+- `@ManyToOne` — for relationships between tables (e.g. StockMovement → Product)
+- Lombok `@Data`, `@NoArgsConstructor`, `@AllArgsConstructor` — auto-generates getters, setters, constructors
+
+---
+
+### `repository/` — Data Access
+
+Spring Data JPA interfaces that handle all database queries. No SQL needed — Spring generates it automatically.
+
+| Interface | Extends | Purpose |
+|---|---|---|
+| `ProductRepository` | `JpaRepository<Product, Long>` | CRUD + custom queries for Product |
+| `WarehouseRepository` | `JpaRepository<Warehouse, Long>` | CRUD for Warehouse |
+| `StockMovementRepository` | `JpaRepository<StockMovement, Long>` | CRUD + filter by product/type |
+
+Custom query methods follow Spring naming conventions:
+```java
+findByCategory(String category)           // SELECT * WHERE category = ?
+findByQuantityLessThan(int threshold)     // SELECT * WHERE quantity < ?
+findByProductId(Long productId)           // SELECT * WHERE product_id = ?
+```
+
+---
+
+### `service/` — Business Logic
+
+Service classes contain the actual business rules. Controllers call services; services call repositories.
+
+| Class | Responsibility |
+|---|---|
+| `ProductService` | CRUD for products, low stock detection |
+| `WarehouseService` | CRUD for warehouses |
+| `StockMovementService` | Record stock in/out, update product quantity, validate stock levels |
+
+Key rule in `StockMovementService`:
+- When type is `IN` → increase product quantity
+- When type is `OUT` → decrease product quantity
+- If quantity would go below 0 → throw an exception
+
+---
+
+### `controller/` — REST Endpoints
+
+Controllers receive HTTP requests, call the appropriate service, and return a response. They do not contain business logic.
+
+| Class | Base Path | Description |
+|---|---|---|
+| `ProductController` | `/api/products` | Product CRUD endpoints |
+| `WarehouseController` | `/api/warehouses` | Warehouse CRUD endpoints |
+| `StockMovementController` | `/api/movements` | Stock movement endpoints |
+
+All controllers use:
+- `@RestController` — marks as REST API controller
+- `@RequestMapping` — sets base URL path
+- `@CrossOrigin(origins = "*")` — allows frontend (HTML) to call the API
+- `ResponseEntity<?>` — wraps responses with HTTP status codes
+
+---
+
+### `resources/static/` — Frontend
+
+Static files served directly by Spring Boot. No separate server needed.
+
+| File | Purpose |
+|---|---|
+| `index.html` | Dashboard — overview and low stock alerts |
+| `products.html` | Product list and management form |
+| `warehouses.html` | Warehouse list and management form |
+| `movements.html` | Stock movement form and history table |
+
+These files use plain `fetch()` calls to hit the REST API endpoints.
+
+---
+
+## Request Flow
+
+```
+Browser (HTML page)
+        ↓  fetch('/api/products')
+ProductController  (@RestController)
+        ↓  calls
+ProductService  (@Service)
+        ↓  calls
+ProductRepository  (JpaRepository)
+        ↓  SQL query
+MySQL Database
+        ↑  result
+ProductRepository
+        ↑  entity
+ProductService
+        ↑  ResponseEntity
+ProductController
+        ↑  JSON response
+Browser
+```
+
+---
+
+## `pom.xml` — Dependencies
+
+| Dependency | Purpose |
+|---|---|
+| `spring-boot-starter-web` | REST API, embedded Tomcat server |
+| `spring-boot-starter-data-jpa` | JPA, Hibernate ORM |
+| `mysql-connector-j` | MySQL JDBC driver |
+| `lombok` | Reduces boilerplate (getters, setters, constructors) |
