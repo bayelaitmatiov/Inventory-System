@@ -19,6 +19,9 @@ target/
 *.iml
 *.ipr
 
+# IntelliJ run configurations
+.run/
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
@@ -34,3 +37,10 @@ build/
 
 # Local Spring Boot config (keep secrets out of git)
 src/main/resources/application.properties
+
+# Local environment files
+.env
+*.local.*
+
+# Logs
+*.log
