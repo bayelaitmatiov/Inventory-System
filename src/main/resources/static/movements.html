@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Movements</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fff; color: #222; margin: 0; }
+        nav { background: #f4f4f4; padding: 12px 20px; border-bottom: 1px solid #ddd; }
+        nav a { margin-right: 14px; text-decoration: none; color: #333; font-weight: 600; }
+        .container { padding: 20px; }
+        form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 8px 12px; border: none; border-radius: 4px; color: #fff; cursor: pointer; background: #1a7f37; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        .message { margin: 10px 0; font-weight: 600; }
+        .message.success { color: #1a7f37; }
+        .message.error { color: #dc3545; }
+    </style>
+</head>
+<body>
+<nav>
+    <a href="/index.html">Dashboard</a>
+    <a href="/products.html">Products</a>
+    <a href="/warehouses.html">Warehouses</a>
+    <a href="/movements.html">Stock Movements</a>
+</nav>
+
+<div class="container">
+    <h1>Stock Movements</h1>
+
+    <form id="movementForm">
+        <select id="productSelect" required>
+            <option value="">Select product</option>
+        </select>
+        <select id="warehouseSelect" required>
+            <option value="">Select warehouse</option>
+        </select>
+        <select id="typeSelect" required>
+            <option value="IN">IN</option>
+            <option value="OUT">OUT</option>
+        </select>
+        <input type="number" id="quantity" placeholder="Quantity" required>
+        <button type="submit">Add Movement</button>
+    </form>
+
+    <div id="message" class="message" style="display:none;"></div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th>Warehouse</th>
+            <th>Type</th>
+            <th>Quantity</th>
+        </tr>
+        </thead>
+        <tbody id="movementTable"></tbody>
+    </table>
+</div>
+
+<script>
+    const apiBase = "http://localhost:8080";
+
+    async function fetchJson(url, options) {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            const error = new Error("Request failed: " + res.status);
+            error.status = res.status;
+            throw error;
+        }
+        return res.json();
+    }
+
+    function showMessage(text, type) {
+        const el = document.getElementById("message");
+        el.textContent = text;
+        el.className = `message ${type}`;
+        el.style.display = "block";
+    }
+
+    function clearMessage() {
+        const el = document.getElementById("message");
+        el.style.display = "none";
+    }
+
+    function populateSelect(selectId, items, labelKey, placeholder) {
+        const select = document.getElementById(selectId);
+        select.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item[labelKey] ?? "";
+            select.appendChild(option);
+        });
+    }
+
+    function renderTable(movements) {
+        const tbody = document.getElementById("movementTable");
+        tbody.innerHTML = "";
+        movements.forEach(m => {
+            const dateValue = m.date ? new Date(m.date).toLocaleString() : "";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${dateValue}</td>
+                <td>${m.product?.name ?? ""}</td>
+                <td>${m.warehouse?.name ?? ""}</td>
+                <td>${m.type ?? ""}</td>
+                <td>${m.quantity ?? 0}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function loadMovements() {
+        const movements = await fetchJson(`${apiBase}/api/movements`);
+        movements.sort((a, b) => new Date(b.date) - new Date(a.date));
+        renderTable(movements);
+    }
+
+    async function initDropdowns() {
+        const [products, warehouses] = await Promise.all([
+            fetchJson(`${apiBase}/api/products`),
+            fetchJson(`${apiBase}/api/warehouses`)
+        ]);
+        populateSelect("productSelect", products, "name", "Select product");
+        populateSelect("warehouseSelect", warehouses, "name", "Select warehouse");
+    }
+
+    document.getElementById("movementForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        clearMessage();
+
+        const payload = {
+            product: { id: Number(document.getElementById("productSelect").value) },
+            warehouse: { id: Number(document.getElementById("warehouseSelect").value) },
+            type: document.getElementById("typeSelect").value,
+            quantity: Number(document.getElementById("quantity").value)
+        };
+
+        try {
+            await fetchJson(`${apiBase}/api/movements`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            showMessage("Stock movement added successfully", "success");
+            document.getElementById("movementForm").reset();
+            await loadMovements();
+        } catch (err) {
+            if (err.status === 400) {
+                showMessage("Insufficient stock", "error");
+            } else {
+                showMessage("Failed to add movement", "error");
+            }
+        }
+    });
+
+    Promise.all([initDropdowns(), loadMovements()]).catch(err => console.error(err));
+</script>
+</body>
+</html>
+

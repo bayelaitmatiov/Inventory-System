@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouses</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fff; color: #222; margin: 0; }
+        nav { background: #f4f4f4; padding: 12px 20px; border-bottom: 1px solid #ddd; }
+        nav a { margin-right: 14px; text-decoration: none; color: #333; font-weight: 600; }
+        .container { padding: 20px; }
+        form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .buttons { display: flex; gap: 8px; align-items: center; }
+        button { padding: 8px 12px; border: none; border-radius: 4px; color: #fff; cursor: pointer; }
+        .btn-submit { background: #1a7f37; }
+        .btn-cancel { background: #6c757d; }
+        .btn-edit { background: #0d6efd; }
+        .btn-delete { background: #dc3545; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    </style>
+</head>
+<body>
+<nav>
+    <a href="/index.html">Dashboard</a>
+    <a href="/products.html">Products</a>
+    <a href="/warehouses.html">Warehouses</a>
+    <a href="/movements.html">Stock Movements</a>
+</nav>
+
+<div class="container">
+    <h1>Warehouse Management</h1>
+
+    <form id="warehouseForm">
+        <input type="text" id="name" placeholder="Name" required>
+        <input type="text" id="location" placeholder="Location" required>
+        <input type="number" id="capacity" placeholder="Capacity" required>
+        <div class="buttons">
+            <button type="submit" class="btn-submit" id="submitBtn">Add Warehouse</button>
+            <button type="button" class="btn-cancel" id="cancelBtn" style="display:none;">Cancel</button>
+        </div>
+    </form>
+
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Capacity</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="warehouseTable"></tbody>
+    </table>
+</div>
+
+<script>
+    const apiBase = "http://localhost:8080";
+    let editingId = null;
+
+    async function fetchJson(url, options) {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            throw new Error("Request failed: " + res.status);
+        }
+        return res.json();
+    }
+
+    function resetForm() {
+        document.getElementById("warehouseForm").reset();
+        editingId = null;
+        document.getElementById("submitBtn").textContent = "Add Warehouse";
+        document.getElementById("cancelBtn").style.display = "none";
+    }
+
+    function setEditMode(warehouse) {
+        editingId = warehouse.id;
+        document.getElementById("name").value = warehouse.name ?? "";
+        document.getElementById("location").value = warehouse.location ?? "";
+        document.getElementById("capacity").value = warehouse.capacity ?? "";
+        document.getElementById("submitBtn").textContent = "Update Warehouse";
+        document.getElementById("cancelBtn").style.display = "inline-block";
+    }
+
+    function renderTable(warehouses) {
+        const tbody = document.getElementById("warehouseTable");
+        tbody.innerHTML = "";
+        warehouses.forEach(w => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${w.id}</td>
+                <td>${w.name ?? ""}</td>
+                <td>${w.location ?? ""}</td>
+                <td>${w.capacity ?? 0}</td>
+                <td>
+                    <button class="btn-edit" data-id="${w.id}">Edit</button>
+                    <button class="btn-delete" data-id="${w.id}">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll(".btn-edit").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = Number(btn.dataset.id);
+                const warehouse = warehouses.find(w => w.id === id);
+                if (warehouse) {
+                    setEditMode(warehouse);
+                }
+            });
+        });
+
+        tbody.querySelectorAll(".btn-delete").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = Number(btn.dataset.id);
+                if (confirm("Delete this warehouse?")) {
+                    await fetch(`${apiBase}/api/warehouses/${id}`, { method: "DELETE" });
+                    await loadWarehouses();
+                    if (editingId === id) {
+                        resetForm();
+                    }
+                }
+            });
+        });
+    }
+
+    async function loadWarehouses() {
+        const warehouses = await fetchJson(`${apiBase}/api/warehouses`);
+        renderTable(warehouses);
+    }
+
+    document.getElementById("warehouseForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+            name: document.getElementById("name").value.trim(),
+            location: document.getElementById("location").value.trim(),
+            capacity: Number(document.getElementById("capacity").value)
+        };
+
+        if (editingId === null) {
+            await fetchJson(`${apiBase}/api/warehouses`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await fetchJson(`${apiBase}/api/warehouses/${editingId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        resetForm();
+        await loadWarehouses();
+    });
+
+    document.getElementById("cancelBtn").addEventListener("click", () => {
+        resetForm();
+    });
+
+    loadWarehouses().catch(err => console.error(err));
+</script>
+</body>
+</html>
+
