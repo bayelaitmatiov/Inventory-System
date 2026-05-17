@@ -17,6 +17,7 @@
         .btn-cancel { background: #6c757d; }
         .btn-edit { background: #0d6efd; }
         .btn-delete { background: #dc3545; }
+        .btn-search { background: #0aa2c0; }
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
     </style>
@@ -62,6 +63,7 @@
 <script>
     const apiBase = "http://localhost:8080";
     let editingId = null;
+    let allProducts = [];
 
     async function fetchJson(url, options) {
         const res = await fetch(url, options);
@@ -134,8 +136,58 @@
 
     async function loadProducts() {
         const products = await fetchJson(`${apiBase}/api/products`);
-        renderTable(products);
+        allProducts = Array.isArray(products) ? products : [];
+        renderTable(allProducts);
     }
+
+    function getSearchCriteria() {
+        return {
+            name: document.getElementById("name").value.trim(),
+            description: document.getElementById("description").value.trim(),
+            price: document.getElementById("price").value.trim(),
+            quantity: document.getElementById("quantity").value.trim(),
+            category: document.getElementById("category").value.trim()
+        };
+    }
+
+    function matchesText(haystack, needle) {
+        if (!needle) return true;
+        return (haystack ?? "").toString().toLowerCase().includes(needle.toLowerCase());
+    }
+
+    function matchesNumber(value, needle) {
+        if (needle === "") return true;
+        const num = Number(needle);
+        if (Number.isNaN(num)) return false;
+        return Number(value) === num;
+    }
+
+    function applySearch() {
+        const criteria = getSearchCriteria();
+        const filtered = allProducts.filter(p =>
+            matchesText(p.name, criteria.name) &&
+            matchesText(p.description, criteria.description) &&
+            matchesText(p.category, criteria.category) &&
+            matchesNumber(p.price, criteria.price) &&
+            matchesNumber(p.quantity, criteria.quantity)
+        );
+        renderTable(filtered);
+    }
+
+    function debounce(fn, delayMs) {
+        let timerId;
+        return (...args) => {
+            clearTimeout(timerId);
+            timerId = setTimeout(() => fn(...args), delayMs);
+        };
+    }
+
+    const onSearchInput = debounce(() => {
+        if (editingId !== null) {
+            return;
+        }
+        applySearch();
+    }, 200);
 
     document.getElementById("productForm").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -167,10 +219,14 @@
 
     document.getElementById("cancelBtn").addEventListener("click", () => {
         resetForm();
+        renderTable(allProducts);
+    });
+
+    ["name", "description", "price", "quantity", "category"].forEach(id => {
+        document.getElementById(id).addEventListener("input", onSearchInput);
     });
 
     loadProducts().catch(err => console.error(err));
 </script>
 </body>
 </html>
-
