@@ -60,7 +60,9 @@ public class StockLevelService {
         stockLevel.setWarehouse(warehouse);
         stockLevel.setQuantity(quantity);
 
-        return stockLevelRepository.save(stockLevel);
+        StockLevel saved = stockLevelRepository.save(stockLevel);
+        syncProductQuantity(product.getId());
+        return saved;
     }
 
     @Transactional
@@ -81,7 +83,18 @@ public class StockLevelService {
         }
 
         stockLevel.setQuantity(updated);
-        return stockLevelRepository.save(stockLevel);
+        StockLevel saved = stockLevelRepository.save(stockLevel);
+        syncProductQuantity(product.getId());
+        return saved;
+    }
+
+    @Transactional
+    public void syncProductQuantity(Long productId) {
+        int total = stockLevelRepository.sumQuantityByProductId(productId);
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+        product.setQuantity(total);
+        productRepository.save(product);
     }
 
     public void delete(Long id) {
@@ -91,4 +104,3 @@ public class StockLevelService {
         stockLevelRepository.deleteById(id);
     }
 }
-

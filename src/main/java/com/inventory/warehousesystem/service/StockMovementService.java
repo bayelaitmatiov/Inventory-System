@@ -68,16 +68,9 @@ public class StockMovementService {
             throw new RuntimeException("Invalid movement type");
         }
 
-        int updatedProductQuantity = product.getQuantity() + delta;
-        if (updatedProductQuantity < 0) {
-            throw new RuntimeException("Insufficient stock");
-        }
-        product.setQuantity(updatedProductQuantity);
-        Product savedProduct = productRepository.save(product);
+        stockLevelService.adjustStock(product, warehouse, delta);
 
-        stockLevelService.adjustStock(savedProduct, warehouse, delta);
-
-        movement.setProduct(savedProduct);
+        movement.setProduct(product);
         movement.setWarehouse(warehouse);
         movement.setType(normalizedType);
         movement.setDate(LocalDateTime.now());
