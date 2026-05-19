@@ -82,6 +82,15 @@ public class StockLevelService {
             throw new RuntimeException("Insufficient stock in warehouse");
         }
 
+        Integer capacity = warehouse.getCapacity();
+        if (capacity != null) {
+            int warehouseTotal = stockLevelRepository.sumQuantityByWarehouseId(warehouse.getId());
+            int projectedTotal = warehouseTotal - current + updated;
+            if (projectedTotal > capacity) {
+                throw new RuntimeException("Warehouse capacity exceeded");
+            }
+        }
+
         stockLevel.setQuantity(updated);
         StockLevel saved = stockLevelRepository.save(stockLevel);
         syncProductQuantity(product.getId());

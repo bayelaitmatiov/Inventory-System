@@ -19,4 +19,7 @@ public interface StockLevelRepository extends JpaRepository<StockLevel, Long> {
 
     @Query("select coalesce(sum(s.quantity), 0) from StockLevel s where s.product.id = :productId")
     int sumQuantityByProductId(@Param("productId") Long productId);
+
+    @Query("select coalesce(sum(s.quantity), 0) from StockLevel s where s.warehouse.id = :warehouseId")
+    int sumQuantityByWarehouseId(@Param("warehouseId") Long warehouseId);
 }
