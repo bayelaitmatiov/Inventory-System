@@ -9,12 +9,11 @@
         nav { background: #f4f4f4; padding: 12px 20px; border-bottom: 1px solid #ddd; }
         nav a { margin-right: 14px; text-decoration: none; color: #333; font-weight: 600; }
         .container { padding: 20px; }
-        form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
-        select, input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 8px 12px; border: none; border-radius: 4px; color: #fff; cursor: pointer; background: #1a7f37; }
+        .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        .btn-delete { background: #dc3545; }
+        .btn-delete { padding: 6px 10px; border: none; border-radius: 4px; color: #fff; cursor: pointer; background: #dc3545; }
     </style>
 </head>
 <body>
@@ -29,16 +28,14 @@
 <div class="container">
     <h1>Stock Levels</h1>
 
-    <form id="stockLevelForm">
-        <select id="productSelect" required>
-            <option value="">Select product</option>
+    <div class="filters">
+        <select id="productFilter">
+            <option value="">Product</option>
         </select>
-        <select id="warehouseSelect" required>
-            <option value="">Select warehouse</option>
+        <select id="warehouseFilter">
+            <option value="">Warehouse</option>
         </select>
-        <input type="number" id="quantity" placeholder="Quantity" required>
-        <button type="submit">Save Stock Level</button>
-    </form>
+    </div>
 
     <table>
         <thead>
@@ -56,6 +53,7 @@
 
 <script>
     const apiBase = "http://localhost:8080";
+    let allLevels = [];
 
     async function fetchJson(url, options) {
         const res = await fetch(url, options);
@@ -104,40 +102,38 @@
         });
     }
 
-    async function loadStockLevels() {
-        const levels = await fetchJson(`${apiBase}/api/stock-levels`);
-        renderTable(levels);
+    function applyFilters() {
+        const productId = document.getElementById("productFilter").value;
+        const warehouseId = document.getElementById("warehouseFilter").value;
+
+        const filtered = allLevels.filter(level => {
+            const matchProduct = !productId || String(level.product?.id) === productId;
+            const matchWarehouse = !warehouseId || String(level.warehouse?.id) === warehouseId;
+            return matchProduct && matchWarehouse;
+        });
+
+        renderTable(filtered);
     }
 
-    async function initDropdowns() {
+    async function loadStockLevels() {
+        const levels = await fetchJson(`${apiBase}/api/stock-levels`);
+        allLevels = Array.isArray(levels) ? levels : [];
+        applyFilters();
+    }
+
+    async function initFilters() {
         const [products, warehouses] = await Promise.all([
             fetchJson(`${apiBase}/api/products`),
             fetchJson(`${apiBase}/api/warehouses`)
         ]);
-        populateSelect("productSelect", products, "name", "Select product");
-        populateSelect("warehouseSelect", warehouses, "name", "Select warehouse");
+        populateSelect("productFilter", products, "name", "Product");
+        populateSelect("warehouseFilter", warehouses, "name", "Warehouse");
     }
 
-    document.getElementById("stockLevelForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const payload = {
-            product: { id: Number(document.getElementById("productSelect").value) },
-            warehouse: { id: Number(document.getElementById("warehouseSelect").value) },
-            quantity: Number(document.getElementById("quantity").value)
-        };
+    document.getElementById("productFilter").addEventListener("change", applyFilters);
+    document.getElementById("warehouseFilter").addEventListener("change", applyFilters);
 
-        await fetchJson(`${apiBase}/api/stock-levels`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        document.getElementById("stockLevelForm").reset();
-        await loadStockLevels();
-    });
-
-    Promise.all([initDropdowns(), loadStockLevels()]).catch(err => console.error(err));
+    Promise.all([initFilters(), loadStockLevels()]).catch(err => console.error(err));
 </script>
 </body>
 </html>
-
