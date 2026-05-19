@@ -2,6 +2,8 @@ package com.inventory.warehousesystem.service;
 
 import com.inventory.warehousesystem.model.Product;
 import com.inventory.warehousesystem.repository.ProductRepository;
+import com.inventory.warehousesystem.repository.StockLevelRepository;
+import com.inventory.warehousesystem.repository.StockMovementRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -9,9 +11,15 @@ import java.util.List;
 @Service
 public class ProductService {
     private final ProductRepository productRepository;
+    private final StockLevelRepository stockLevelRepository;
+    private final StockMovementRepository stockMovementRepository;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository,
+                          StockLevelRepository stockLevelRepository,
+                          StockMovementRepository stockMovementRepository) {
         this.productRepository = productRepository;
+        this.stockLevelRepository = stockLevelRepository;
+        this.stockMovementRepository = stockMovementRepository;
     }
 
     public List<Product> getAllProducts() {
@@ -44,6 +52,12 @@ public class ProductService {
         if (!productRepository.existsById(id)) {
             throw new RuntimeException("Product not found");
         }
+        if (stockLevelRepository.countByProductId(id) > 0) {
+            throw new RuntimeException("Cannot delete product: stock levels still exist");
+        }
+        if (stockMovementRepository.countByProductId(id) > 0) {
+            throw new RuntimeException("Cannot delete product: stock movements still exist");
+        }
         productRepository.deleteById(id);
     }
 
@@ -51,4 +65,3 @@ public class ProductService {
         return productRepository.findByQuantityLessThan(threshold);
     }
 }
-
